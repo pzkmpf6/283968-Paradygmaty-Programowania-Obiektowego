@@ -14,6 +14,7 @@ void dodajOsobe(string *tabN, string *tabI, int *tabInd, int &licznik, string n,
         licznik++;
     }
 }
+
 void ustawObecnosc(string *tabN, bool *tabO, int licznik, string nazwisko, bool obecnosc) {
     for (int i = 0; i < licznik; i++) {
         if (tabN[i] == nazwisko) {
@@ -21,6 +22,7 @@ void ustawObecnosc(string *tabN, bool *tabO, int licznik, string nazwisko, bool 
         }
     }
 }
+
 void usunOsobe(string *tabN, string *tabI, int *tabInd, bool *tabO, int &licznik, string nazwisko) {
     int doUsuniecia = -1;
     for (int i = 0; i < licznik; i++) {
@@ -40,35 +42,50 @@ void usunOsobe(string *tabN, string *tabI, int *tabInd, bool *tabO, int &licznik
         licznik--;
     }
 }
-void drukujListe(string *tabN, string *tabI, int *tabInd, bool *tabO, int licznik) {
-        if (licznik == 0) {
-            cout << "\nLista jest pusta." << endl;
-            return;
+
+void edytujOsobe(string *tabN, string *tabI, int *tabInd, int licznik, string stareNazwisko, string noweNazwisko, string noweImie, int nowyIndeks) {
+    for (int i = 0; i < licznik; i++) {
+        if (tabN[i] == stareNazwisko) {
+            tabN[i] = noweNazwisko;
+            tabI[i] = noweImie;
+            tabInd[i] = nowyIndeks;
+            break;
         }
-        cout << "\n";
-        cout << left << setw(8)  << "INDEKS"   << " | "
-             << left << setw(15) << "IMIE"     << " | "
-             << left << setw(15) << "NAZWISKO" << " | "
-             << "OBECNOSC" << endl;
-        cout << "------------------------------------------------------" << endl;
-        for (int i = 0; i < licznik; i++) {
-            cout << left << setw(8)  << tabInd[i] << " | "
-                 << left << setw(15) << tabI[i]   << " | "
-                 << left << setw(15) << tabN[i]   << " | "
-                 << (tabO[i] ? "1" : "0") << endl;
-        }
+    }
 }
+
+void drukujListe(string *tabN, string *tabI, int *tabInd, bool *tabO, int licznik) {
+    if (licznik == 0) {
+        cout << "\nLista jest pusta." << endl;
+        return;
+    }
+    cout << "\n";
+    cout << left << setw(8)  << "INDEKS"   << " | "
+         << left << setw(15) << "IMIE"     << " | "
+         << left << setw(15) << "NAZWISKO" << " | "
+         << "OBECNOSC" << endl;
+    cout << "------------------------------------------------------" << endl;
+    for (int i = 0; i < licznik; i++) {
+        cout << left << setw(8)  << tabInd[i] << " | "
+             << left << setw(15) << tabI[i]   << " | "
+             << left << setw(15) << tabN[i]   << " | "
+             << (tabO[i] ? "1" : "0") << endl;
+    }
+}
+
 int main() {
     string *tabNazwisk = new string[MAX];
     string *tabImion = new string[MAX];
     int *tabIndeksow = new int[MAX];
     bool *tabObecnosci = new bool[MAX];
 
+    for(int i = 0; i < MAX; i++) tabObecnosci[i] = false;
+
     int licznik = 0;
     int wybor = -1;
 
     while (wybor != 0) {
-        cout << "\n1. Dodaj\n2. Ustaw obecnosc\n3. Usun\n4. Drukuj\n0. Wyjscie\nWybor: ";
+        cout << "\n1. Dodaj\n2. Ustaw obecnosc\n3. Usun\n4. Edytuj\n5. Drukuj\n0. Wyjscie\nWybor: ";
         cin >> wybor;
 
         if (wybor == 1) {
@@ -90,10 +107,17 @@ int main() {
             usunOsobe(tabNazwisk, tabImion, tabIndeksow, tabObecnosci, licznik, n);
         }
         else if (wybor == 4) {
+            string stareN, noweN, noweI; int nowyInd;
+            cout << "Podaj nazwisko osoby do edycji: "; cin >> stareN;
+            cout << "Podaj nowe nazwisko: "; cin >> noweN;
+            cout << "Podaj nowe imie: "; cin >> noweI;
+            cout << "Podaj nowy indeks: "; cin >> nowyInd;
+            edytujOsobe(tabNazwisk, tabImion, tabIndeksow, licznik, stareN, noweN, noweI, nowyInd);
+        }
+        else if (wybor == 5) {
             drukujListe(tabNazwisk, tabImion, tabIndeksow, tabObecnosci, licznik);
         }
     }
-
     delete[] tabNazwisk; delete[] tabImion; delete[] tabIndeksow; delete[] tabObecnosci;
     return 0;
 }
