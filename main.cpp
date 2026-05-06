@@ -4,23 +4,33 @@
 
 using namespace std;
 
-const int MAX_OSOB = 10;
 const int MAX_LIST = 2;
-class Osoba
+
+// -------------------------------------------------------
+
+class ISerializable
 {
-private:
+public:
+    virtual string serialize() = 0;
+    virtual ~ISerializable() {}
+};
+
+// -------------------------------------------------------
+
+class Osoba : public ISerializable
+{
+protected:
     int wzrost;
     string dataUrodzenia;
-    int nr_indeksu;
     string imie;
     string nazwisko;
 
 public:
-    Osoba() : wzrost(0), dataUrodzenia("-"), nr_indeksu(0), imie(""), nazwisko("") {}
+    Osoba() : wzrost(0), dataUrodzenia("-"), imie(""), nazwisko("") {}
+    virtual ~Osoba() {}
 
     string getNazwisko() { return nazwisko; }
     string getImie() { return imie; }
-    int getNrIndeksu() { return nr_indeksu; }
     int getWzrost() { return wzrost; }
     string getDataUrodzenia() { return dataUrodzenia; }
 
@@ -34,6 +44,7 @@ public:
             wzrost = 0;
         }
     }
+
     void setDataUrodzenia(string d)
     {
         if (d.length() >= 4)
@@ -44,6 +55,7 @@ public:
             dataUrodzenia = "-";
         }
     }
+
     void setImie(string i)
     {
         if (i.length() >= 1)
@@ -51,6 +63,7 @@ public:
         else
             cout << "Blad: Imie musi miec co najmniej 1 znak!" << endl;
     }
+
     void setNazwisko(string n)
     {
         if (n.length() >= 1)
@@ -58,6 +71,34 @@ public:
         else
             cout << "Blad: Nazwisko musi miec co najmniej 1 znak!" << endl;
     }
+
+    virtual void drukuj()
+    {
+        cout << left
+             << setw(8) << wzrost << " | "
+             << setw(12) << dataUrodzenia << " | "
+             << setw(12) << imie << " | "
+             << setw(15) << nazwisko;
+    }
+
+    virtual string serialize()
+    {
+        return getImie() + " " + getNazwisko();
+    }
+};
+
+// -------------------------------------------------------
+
+class Student : public Osoba
+{
+private:
+    int nr_indeksu;
+
+public:
+    Student() : Osoba(), nr_indeksu(0) {}
+
+    int getNrIndeksu() { return nr_indeksu; }
+
     void setNrIndeksu(int ind)
     {
         if (ind > 0)
@@ -68,18 +109,51 @@ public:
 
     void drukuj()
     {
-        cout << left
-             << setw(8) << wzrost << " | "
-             << setw(12) << dataUrodzenia << " | "
-             << setw(8) << nr_indeksu << " | "
-             << setw(12) << imie << " | "
-             << setw(15) << nazwisko;
+        Osoba::drukuj();
+        cout << " | ind: " << nr_indeksu;
+    }
+
+    string serialize()
+    {
+        return "Student: " + getImie() + " " + getNazwisko() + ", ind: " + to_string(getNrIndeksu());
     }
 };
 
 // -------------------------------------------------------
 
-class ListaObecnosci
+class Pracownik : public Osoba
+{
+private:
+    int id_pracownika;
+
+public:
+    Pracownik() : Osoba(), id_pracownika(0) {}
+
+    int getIdPracownika() { return id_pracownika; }
+
+    void setIdPracownika(int id)
+    {
+        if (id > 0)
+            id_pracownika = id;
+        else
+            cout << "Blad: ID musi byc wieksze od 0!" << endl;
+    }
+
+    void drukuj()
+    {
+        Osoba::drukuj();
+        cout << " | id: " << id_pracownika;
+    }
+
+    string serialize()
+    {
+        return "Pracownik: " + getImie() + " " + getNazwisko() + ", id: " + to_string(getIdPracownika());
+    }
+};
+
+// -------------------------------------------------------
+
+class ListaObecnosci : public ISerializable
 {
 private:
     Osoba **tablicaOsobWskazniki;
@@ -88,9 +162,8 @@ private:
     int maxRozmiar;
 
 public:
-    ListaObecnosci()
-        : tablicaOsobWskazniki(nullptr), tablicaObecnosciBool(nullptr),
-          licznik(0), maxRozmiar(0) {}
+    ListaObecnosci() : tablicaOsobWskazniki(nullptr), tablicaObecnosciBool(nullptr),
+                       licznik(0), maxRozmiar(0) {}
 
     void inicjalizuj(int rozmiar)
     {
@@ -116,9 +189,7 @@ public:
             licznik++;
         }
         else
-        {
             cout << "Brak miejsca na liscie!" << endl;
-        }
     }
 
     void ustawObecnosc(string nazwisko, bool obecnosc)
@@ -164,7 +235,6 @@ public:
         cout << left
              << setw(8) << "WZROST" << " | "
              << setw(12) << "DATA UR." << " | "
-             << setw(8) << "INDEKS" << " | "
              << setw(12) << "IMIE" << " | "
              << setw(15) << "NAZWISKO" << " | "
              << "OBECNOSC" << endl;
@@ -175,6 +245,19 @@ public:
             cout << " | " << (tablicaObecnosciBool[i] ? "OBECNY" : "NIEOBECNY") << endl;
         }
     }
+
+    string serialize()
+    {
+        string wynik = "=== Lista Obecnosci ===\n";
+        for (int i = 0; i < licznik; i++)
+        {
+            wynik += tablicaOsobWskazniki[i]->serialize();
+            wynik += " | ";
+            wynik += (tablicaObecnosciBool[i] ? "OBECNY" : "NIEOBECNY");
+            wynik += "\n";
+        }
+        return wynik;
+    }
 };
 
 // -------------------------------------------------------
@@ -182,128 +265,194 @@ public:
 class InterfejsUzytkownika
 {
 private:
-    Osoba *tabOsob;
-    int iloscOsob, iloscList;
+    Student *tabStudentow;
+    Pracownik *tabPracownikow;
+    int iloscStudentow, iloscPracownikow;
+    int licznikStudentow, licznikPracownikow;
     ListaObecnosci *tabList;
-    int licznikOsob;
+    int iloscList;
 
     void dodajOsobe()
     {
-        if (licznikOsob >= iloscOsob)
-        {
-            cout << "Baza pelna!" << endl;
-            return;
-        }
-        int w, id;
-        string d, i, n;
+        int typ;
+        cout << "Dodaj: 1-Student, 2-Pracownik: ";
+        cin >> typ;
+
+        int w;
+        string d, im, naz;
         cout << "Wzrost (cm): ";
         cin >> w;
         cout << "Data urodzenia (dd-mm-rrrr): ";
         cin >> d;
         cout << "Imie: ";
-        cin >> i;
+        cin >> im;
         cout << "Nazwisko: ";
-        cin >> n;
-        cout << "Nr indeksu: ";
-        cin >> id;
+        cin >> naz;
 
-        tabOsob[licznikOsob].setWzrost(w);
-        tabOsob[licznikOsob].setDataUrodzenia(d);
-        tabOsob[licznikOsob].setImie(i);
-        tabOsob[licznikOsob].setNazwisko(n);
-        tabOsob[licznikOsob].setNrIndeksu(id);
-        licznikOsob++;
-        cout << "Osoba dodana do bazy. (nr " << licznikOsob - 1 << ")" << endl;
+        if (typ == 1)
+        {
+            if (licznikStudentow >= iloscStudentow)
+            {
+                cout << "Baza studentow pelna!" << endl;
+                return;
+            }
+            int ind;
+            cout << "Nr indeksu: ";
+            cin >> ind;
+            tabStudentow[licznikStudentow].setWzrost(w);
+            tabStudentow[licznikStudentow].setDataUrodzenia(d);
+            tabStudentow[licznikStudentow].setImie(im);
+            tabStudentow[licznikStudentow].setNazwisko(naz);
+            tabStudentow[licznikStudentow].setNrIndeksu(ind);
+            licznikStudentow++;
+            cout << "Student dodany (nr " << licznikStudentow << ")" << endl;
+        }
+        else if (typ == 2)
+        {
+            if (licznikPracownikow >= iloscPracownikow)
+            {
+                cout << "Baza pracownikow pelna!" << endl;
+                return;
+            }
+            int id;
+            cout << "ID pracownika: ";
+            cin >> id;
+            tabPracownikow[licznikPracownikow].setWzrost(w);
+            tabPracownikow[licznikPracownikow].setDataUrodzenia(d);
+            tabPracownikow[licznikPracownikow].setImie(im);
+            tabPracownikow[licznikPracownikow].setNazwisko(naz);
+            tabPracownikow[licznikPracownikow].setIdPracownika(id);
+            licznikPracownikow++;
+            cout << "Pracownik dodany (nr " << licznikPracownikow << ")" << endl;
+        }
+        else
+            cout << "Nieznany typ osoby." << endl;
     }
 
     void przypiszDoListy()
     {
-        int idxO, idxL;
-        cout << "Nr osoby w bazie (0-" << licznikOsob - 1 << "): ";
-        cin >> idxO;
-        cout << "Nr listy (0-" << iloscList - 1 << "): ";
+        int typ, idx, idxL;
+        cout << "Typ: 1-Student, 2-Pracownik: ";
+        cin >> typ;
+        cout << "Nr osoby: ";
+        cin >> idx;
+        cout << "Nr listy (1-" << iloscList << "): ";
         cin >> idxL;
-        if (idxO >= 0 && idxO < licznikOsob && idxL >= 0 && idxL < iloscList)
+        idx--;
+        idxL--;
+
+        if (idxL < 0 || idxL >= iloscList)
         {
-            tabList[idxL].dodajWskaznik(&tabOsob[idxO]);
-            cout << "Przypisano." << endl;
+            cout << "Blad: Nie ma takiej listy." << endl;
+            return;
         }
+        if (typ == 1 && idx >= 0 && idx < licznikStudentow)
+            tabList[idxL].dodajWskaznik(&tabStudentow[idx]);
+        else if (typ == 2 && idx >= 0 && idx < licznikPracownikow)
+            tabList[idxL].dodajWskaznik(&tabPracownikow[idx]);
         else
-        {
-            cout << "Blad: Niepoprawny nr osoby lub listy." << endl;
-        }
+            cout << "Blad: Niepoprawny nr osoby." << endl;
     }
 
     void ustawObecnosc()
     {
-        int idxL;
+        int idxL, st;
         string naz;
-        int st;
-        cout << "Nr listy (0-" << iloscList - 1 << "): ";
+        cout << "Nr listy (1-" << iloscList << "): ";
         cin >> idxL;
+        idxL--;
         cout << "Nazwisko: ";
         cin >> naz;
-        cout << "Obecnosc (1 - obecny, 0 - nieobecny): ";
+        cout << "Obecnosc (1-obecny, 0-nieobecny): ";
         cin >> st;
         if (idxL >= 0 && idxL < iloscList)
-        {
             tabList[idxL].ustawObecnosc(naz, st == 1);
-        }
         else
-        {
             cout << "Blad: Nie ma takiej listy." << endl;
-        }
     }
 
     void usunZListy()
     {
         int idxL;
         string naz;
-        cout << "Nr listy (0-" << iloscList - 1 << "): ";
+        cout << "Nr listy (1-" << iloscList << "): ";
         cin >> idxL;
+        idxL--;
         cout << "Nazwisko: ";
         cin >> naz;
         if (idxL >= 0 && idxL < iloscList)
-        {
             tabList[idxL].usunZListy(naz);
-        }
         else
-        {
             cout << "Blad: Nie ma takiej listy." << endl;
-        }
     }
 
     void edytujOsobe()
     {
+        int typ;
         string naz;
+        cout << "Edytuj: 1-Student, 2-Pracownik: ";
+        cin >> typ;
         cout << "Nazwisko osoby do edycji: ";
         cin >> naz;
-        for (int i = 0; i < licznikOsob; i++)
+
+        if (typ == 1)
         {
-            if (tabOsob[i].getNazwisko() == naz)
+            for (int i = 0; i < licznikStudentow; i++)
             {
-                int nowyW, nowyInd;
-                string nowaD, noweI, noweN;
-                cout << "Nowy wzrost (cm): ";
-                cin >> nowyW;
-                cout << "Nowa data urodzenia: ";
-                cin >> nowaD;
-                cout << "Nowe imie: ";
-                cin >> noweI;
-                cout << "Nowe nazwisko: ";
-                cin >> noweN;
-                cout << "Nowy nr indeksu: ";
-                cin >> nowyInd;
-                tabOsob[i].setWzrost(nowyW);
-                tabOsob[i].setDataUrodzenia(nowaD);
-                tabOsob[i].setImie(noweI);
-                tabOsob[i].setNazwisko(noweN);
-                tabOsob[i].setNrIndeksu(nowyInd);
-                cout << "Dane zaktualizowane (zmiana widoczna we wszystkich listach)." << endl;
-                return;
+                if (tabStudentow[i].getNazwisko() == naz)
+                {
+                    int w, ind;
+                    string d, im, n;
+                    cout << "Nowy wzrost: ";
+                    cin >> w;
+                    cout << "Nowa data ur.: ";
+                    cin >> d;
+                    cout << "Nowe imie: ";
+                    cin >> im;
+                    cout << "Nowe nazwisko: ";
+                    cin >> n;
+                    cout << "Nowy nr indeksu: ";
+                    cin >> ind;
+                    tabStudentow[i].setWzrost(w);
+                    tabStudentow[i].setDataUrodzenia(d);
+                    tabStudentow[i].setImie(im);
+                    tabStudentow[i].setNazwisko(n);
+                    tabStudentow[i].setNrIndeksu(ind);
+                    cout << "Dane zaktualizowane." << endl;
+                    return;
+                }
             }
+            cout << "Nie znaleziono studenta." << endl;
         }
-        cout << "Nie znaleziono osoby w bazie." << endl;
+        else if (typ == 2)
+        {
+            for (int i = 0; i < licznikPracownikow; i++)
+            {
+                if (tabPracownikow[i].getNazwisko() == naz)
+                {
+                    int w, id;
+                    string d, im, n;
+                    cout << "Nowy wzrost: ";
+                    cin >> w;
+                    cout << "Nowa data ur.: ";
+                    cin >> d;
+                    cout << "Nowe imie: ";
+                    cin >> im;
+                    cout << "Nowe nazwisko: ";
+                    cin >> n;
+                    cout << "Nowe ID pracownika: ";
+                    cin >> id;
+                    tabPracownikow[i].setWzrost(w);
+                    tabPracownikow[i].setDataUrodzenia(d);
+                    tabPracownikow[i].setImie(im);
+                    tabPracownikow[i].setNazwisko(n);
+                    tabPracownikow[i].setIdPracownika(id);
+                    cout << "Dane zaktualizowane." << endl;
+                    return;
+                }
+            }
+            cout << "Nie znaleziono pracownika." << endl;
+        }
     }
 
     void drukujWszystko()
@@ -316,11 +465,16 @@ private:
     }
 
 public:
-    InterfejsUzytkownika(Osoba *to, int mo, ListaObecnosci *tl, int ml)
-        : tabOsob(to), iloscOsob(mo), iloscList(ml), tabList(tl), licznikOsob(0)
+    InterfejsUzytkownika(Student *ts, int ms,
+                         Pracownik *tp, int mp,
+                         ListaObecnosci *tl, int ml)
+        : tabStudentow(ts), tabPracownikow(tp),
+          iloscStudentow(ms), iloscPracownikow(mp),
+          licznikStudentow(0), licznikPracownikow(0),
+          tabList(tl), iloscList(ml)
     {
         for (int i = 0; i < iloscList; i++)
-            tabList[i].inicjalizuj(iloscOsob);
+            tabList[i].inicjalizuj(ms + mp);
     }
 
     void petla()
@@ -372,10 +526,17 @@ public:
 
 int main()
 {
-    Osoba tablicaOsob[MAX_OSOB];
+    const int MAX_ST = 10;
+    const int MAX_PR = 10;
+
+    Student tablicaStudentow[MAX_ST];
+    Pracownik tablicaPracownikow[MAX_PR];
     ListaObecnosci tablicaList[MAX_LIST];
 
-    InterfejsUzytkownika ui(tablicaOsob, MAX_OSOB, tablicaList, MAX_LIST);
+    InterfejsUzytkownika ui(
+        tablicaStudentow, MAX_ST,
+        tablicaPracownikow, MAX_PR,
+        tablicaList, MAX_LIST);
     ui.petla();
 
     return 0;
