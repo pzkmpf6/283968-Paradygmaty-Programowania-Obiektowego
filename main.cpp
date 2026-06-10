@@ -1,6 +1,7 @@
 #include <iostream>
 #include <iomanip>
 #include <string>
+#include <fstream>
 
 using namespace std;
 
@@ -115,7 +116,12 @@ public:
 
     string serialize()
     {
-        return "Student: " + getImie() + " " + getNazwisko() + ", ind: " + to_string(getNrIndeksu());
+        string pelneNazwisko = getImie() + " " + getNazwisko();
+        int dlugosc = (int)pelneNazwisko.length();
+        int odstep = (dlugosc < 22) ? (22 - dlugosc) : 1;
+        return "[ Student   ]  " + pelneNazwisko +
+               string(odstep, ' ') +
+               "ind: " + to_string(getNrIndeksu());
     }
 };
 
@@ -147,7 +153,12 @@ public:
 
     string serialize()
     {
-        return "Pracownik: " + getImie() + " " + getNazwisko() + ", id: " + to_string(getIdPracownika());
+        string pelneNazwisko = getImie() + " " + getNazwisko();
+        int dlugosc = (int)pelneNazwisko.length();
+        int odstep = (dlugosc < 22) ? (22 - dlugosc) : 1;
+        return "[ Pracownik ]  " + pelneNazwisko +
+               string(odstep, ' ') +
+               "id:  " + to_string(getIdPracownika());
     }
 };
 
@@ -248,21 +259,51 @@ public:
 
     string serialize()
     {
-        string wynik = "=== Lista Obecnosci ===\n";
+        string linia = string(48, '=') + "\n";
+        string wynik = linia;
+        wynik += "        LISTA OBECNOSCI\n";
+        wynik += linia;
+
+        int obecnych = 0;
         for (int i = 0; i < licznik; i++)
         {
-            wynik += tablicaOsobWskazniki[i]->serialize();
-            wynik += " | ";
-            wynik += (tablicaObecnosciBool[i] ? "OBECNY" : "NIEOBECNY");
-            wynik += "\n";
+            string status = tablicaObecnosciBool[i] ? "[ OBECNY    ]" : "[ NIEOBECNY ]";
+            wynik += status + "  " + tablicaOsobWskazniki[i]->serialize() + "\n";
+            if (tablicaObecnosciBool[i])
+                obecnych++;
         }
+
+        wynik += linia;
+        wynik += "Obecnych: " + to_string(obecnych) + " / " + to_string(licznik) + "\n";
+        wynik += linia;
         return wynik;
     }
 };
 
 // -------------------------------------------------------
 
-class InterfejsUzytkownika
+void drukuj(ISerializable *obj)
+{
+    cout << obj->serialize() << endl;
+}
+
+void zapiszDoPliku(ISerializable *obj, string nazwaPliku)
+{
+    ofstream plik;
+    plik.open(nazwaPliku.c_str());
+    if (!plik.is_open())
+    {
+        cout << "Blad: Nie mozna otworzyc pliku!" << endl;
+        return;
+    }
+    plik << obj->serialize();
+    plik.close();
+    cout << "Zapisano do pliku: " << nazwaPliku << endl;
+}
+
+// -------------------------------------------------------
+
+class InterfejsUzytkownika : public ISerializable
 {
 private:
     Student *tabStudentow;
@@ -464,6 +505,50 @@ private:
         }
     }
 
+    void zapiszWybor()
+    {
+        int wybor;
+        cout << "Co zapisac? 1-cala lista, 2-wybrana osoba: ";
+        cin >> wybor;
+
+        if (wybor == 1)
+        {
+            int idxL;
+            cout << "Nr listy (1-" << iloscList << "): ";
+            cin >> idxL;
+            idxL--;
+            if (idxL >= 0 && idxL < iloscList)
+                zapiszDoPliku(&tabList[idxL], "lista.txt");
+            else
+                cout << "Blad: Nie ma takiej listy." << endl;
+        }
+        else if (wybor == 2)
+        {
+            string naz;
+            cout << "Nazwisko osoby: ";
+            cin >> naz;
+            for (int i = 0; i < licznikStudentow; i++)
+            {
+                if (tabStudentow[i].getNazwisko() == naz)
+                {
+                    zapiszDoPliku(&tabStudentow[i], "osoba.txt");
+                    return;
+                }
+            }
+            for (int i = 0; i < licznikPracownikow; i++)
+            {
+                if (tabPracownikow[i].getNazwisko() == naz)
+                {
+                    zapiszDoPliku(&tabPracownikow[i], "osoba.txt");
+                    return;
+                }
+            }
+            cout << "Nie znaleziono osoby." << endl;
+        }
+        else
+            cout << "Nieznana opcja." << endl;
+    }
+
 public:
     InterfejsUzytkownika(Student *ts, int ms,
                          Pracownik *tp, int mp,
@@ -475,6 +560,14 @@ public:
     {
         for (int i = 0; i < iloscList; i++)
             tabList[i].inicjalizuj(ms + mp);
+    }
+
+    string serialize()
+    {
+        string wynik = "";
+        for (int i = 0; i < iloscList; i++)
+            wynik += tabList[i].serialize();
+        return wynik;
     }
 
     void petla()
@@ -489,6 +582,7 @@ public:
                  << "\n4. Usun osobe z listy"
                  << "\n5. Edytuj dane osoby"
                  << "\n6. Drukuj wszystkie listy"
+                 << "\n7. Zapisz do pliku"
                  << "\n0. Wyjscie"
                  << "\nWybor: ";
             cin >> wybor;
@@ -512,6 +606,9 @@ public:
                 break;
             case 6:
                 drukujWszystko();
+                break;
+            case 7:
+                zapiszWybor();
                 break;
             case 0:
                 break;
