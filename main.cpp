@@ -2,6 +2,7 @@
 #include <iomanip>
 #include <string>
 #include <fstream>
+#include <map>
 
 using namespace std;
 
@@ -14,6 +15,15 @@ class ISerializable
 public:
     virtual string serialize() = 0;
     virtual ~ISerializable() {}
+};
+
+// -------------------------------------------------------
+
+class IEksportowalny
+{
+public:
+    virtual map<string, string> eksportuj() = 0;
+    virtual ~IEksportowalny() {}
 };
 
 // -------------------------------------------------------
@@ -90,7 +100,7 @@ public:
 
 // -------------------------------------------------------
 
-class Student : public Osoba
+class Student : public Osoba, public IEksportowalny
 {
 private:
     int nr_indeksu;
@@ -123,11 +133,20 @@ public:
                string(odstep, ' ') +
                "ind: " + to_string(getNrIndeksu());
     }
+
+    map<string, string> eksportuj()
+    {
+        map<string, string> dane;
+        dane["typ"] = "Student";
+        dane["imie"] = getImie();
+        dane["nr_indeksu"] = to_string(getNrIndeksu());
+        return dane;
+    }
 };
 
 // -------------------------------------------------------
 
-class Pracownik : public Osoba
+class Pracownik : public Osoba, public IEksportowalny
 {
 private:
     int id_pracownika;
@@ -159,6 +178,15 @@ public:
         return "[ Pracownik ]  " + pelneNazwisko +
                string(odstep, ' ') +
                "id:  " + to_string(getIdPracownika());
+    }
+
+    map<string, string> eksportuj()
+    {
+        map<string, string> dane;
+        dane["typ"] = "Pracownik";
+        dane["imie"] = getImie();
+        dane["id_pracownika"] = to_string(getIdPracownika());
+        return dane;
     }
 };
 
@@ -263,7 +291,6 @@ public:
         string wynik = linia;
         wynik += "        LISTA OBECNOSCI\n";
         wynik += linia;
-
         int obecnych = 0;
         for (int i = 0; i < licznik; i++)
         {
@@ -272,7 +299,6 @@ public:
             if (tablicaObecnosciBool[i])
                 obecnych++;
         }
-
         wynik += linia;
         wynik += "Obecnych: " + to_string(obecnych) + " / " + to_string(licznik) + "\n";
         wynik += linia;
@@ -303,6 +329,73 @@ void zapiszDoPliku(ISerializable *obj, string nazwaPliku)
 
 // -------------------------------------------------------
 
+class IExporter
+{
+public:
+    virtual void wykonajEksport(IEksportowalny *obj, string nazwaPliku) = 0;
+    virtual ~IExporter() {}
+};
+
+// -------------------------------------------------------
+
+class ExporterTxt : public IExporter
+{
+public:
+    void wykonajEksport(IEksportowalny *obj, string nazwaPliku)
+    {
+        map<string, string> dane = obj->eksportuj();
+        ofstream plik;
+        plik.open(nazwaPliku.c_str());
+        if (!plik.is_open())
+        {
+            cout << "Blad: Nie mozna otworzyc pliku!" << endl;
+            return;
+        }
+        map<string, string>::iterator it;
+        for (it = dane.begin(); it != dane.end(); ++it)
+            plik << it->first << ": " << it->second << "  ";
+        plik << "\n";
+        plik.close();
+        cout << "Zapisano TXT: " << nazwaPliku << endl;
+    }
+};
+
+// -------------------------------------------------------
+
+class ExporterCsv : public IExporter
+{
+public:
+    void wykonajEksport(IEksportowalny *obj, string nazwaPliku)
+    {
+        map<string, string> dane = obj->eksportuj();
+        ofstream plik;
+        plik.open(nazwaPliku.c_str());
+        if (!plik.is_open())
+        {
+            cout << "Blad: Nie mozna otworzyc pliku!" << endl;
+            return;
+        }
+        string naglowki = "";
+        string wartosci = "";
+        for (map<string, string>::iterator it = dane.begin(); it != dane.end(); ++it)
+        {
+            if (naglowki != "")
+            {
+                naglowki += ", ";
+                wartosci += ", ";
+            }
+            naglowki += it->first;
+            wartosci += it->second;
+        }
+        plik << naglowki << "\n"
+             << wartosci << "\n";
+        plik.close();
+        cout << "Zapisano CSV: " << nazwaPliku << endl;
+    }
+};
+
+// -------------------------------------------------------
+
 class InterfejsUzytkownika : public ISerializable
 {
 private:
@@ -318,7 +411,6 @@ private:
         int typ;
         cout << "Dodaj: 1-Student, 2-Pracownik: ";
         cin >> typ;
-
         int w;
         string d, im, naz;
         cout << "Wzrost (cm): ";
@@ -329,7 +421,6 @@ private:
         cin >> im;
         cout << "Nazwisko: ";
         cin >> naz;
-
         if (typ == 1)
         {
             if (licznikStudentow >= iloscStudentow)
@@ -381,7 +472,6 @@ private:
         cin >> idxL;
         idx--;
         idxL--;
-
         if (idxL < 0 || idxL >= iloscList)
         {
             cout << "Blad: Nie ma takiej listy." << endl;
@@ -435,7 +525,6 @@ private:
         cin >> typ;
         cout << "Nazwisko osoby do edycji: ";
         cin >> naz;
-
         if (typ == 1)
         {
             for (int i = 0; i < licznikStudentow; i++)
@@ -510,7 +599,6 @@ private:
         int wybor;
         cout << "Co zapisac? 1-cala lista, 2-wybrana osoba: ";
         cin >> wybor;
-
         if (wybor == 1)
         {
             int idxL;
@@ -549,6 +637,74 @@ private:
             cout << "Nieznana opcja." << endl;
     }
 
+    void eksportujOsobe()
+    {
+        if (licznikStudentow == 0 && licznikPracownikow == 0)
+        {
+            cout << "Brak osob w bazie." << endl;
+            return;
+        }
+
+        int typ;
+        cout << "Eksportuj: 1-Student, 2-Pracownik: ";
+        cin >> typ;
+
+        string naz;
+        cout << "Nazwisko: ";
+        cin >> naz;
+
+        IEksportowalny *obj = nullptr;
+        string domyslnaNazwa = "";
+
+        if (typ == 1)
+        {
+            for (int i = 0; i < licznikStudentow; i++)
+            {
+                if (tabStudentow[i].getNazwisko() == naz)
+                {
+                    obj = &tabStudentow[i];
+                    domyslnaNazwa = "student_" + naz;
+                    break;
+                }
+            }
+        }
+        else if (typ == 2)
+        {
+            for (int i = 0; i < licznikPracownikow; i++)
+            {
+                if (tabPracownikow[i].getNazwisko() == naz)
+                {
+                    obj = &tabPracownikow[i];
+                    domyslnaNazwa = "pracownik_" + naz;
+                    break;
+                }
+            }
+        }
+
+        if (obj == nullptr)
+        {
+            cout << "Nie znaleziono osoby." << endl;
+            return;
+        }
+
+        int format;
+        cout << "Format: 1-TXT, 2-CSV: ";
+        cin >> format;
+
+        if (format == 1)
+        {
+            ExporterTxt eksporter;
+            eksporter.wykonajEksport(obj, domyslnaNazwa + ".txt");
+        }
+        else if (format == 2)
+        {
+            ExporterCsv eksporter;
+            eksporter.wykonajEksport(obj, domyslnaNazwa + ".csv");
+        }
+        else
+            cout << "Nieznany format." << endl;
+    }
+
 public:
     InterfejsUzytkownika(Student *ts, int ms,
                          Pracownik *tp, int mp,
@@ -583,6 +739,7 @@ public:
                  << "\n5. Edytuj dane osoby"
                  << "\n6. Drukuj wszystkie listy"
                  << "\n7. Zapisz do pliku"
+                 << "\n8. Eksportuj osobe"
                  << "\n0. Wyjscie"
                  << "\nWybor: ";
             cin >> wybor;
@@ -609,6 +766,9 @@ public:
                 break;
             case 7:
                 zapiszWybor();
+                break;
+            case 8:
+                eksportujOsobe();
                 break;
             case 0:
                 break;
